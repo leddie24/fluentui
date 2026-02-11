@@ -1,93 +1,38 @@
 'use client';
 
 import * as React from 'react';
-import { useEffect, useState, useRef } from 'react';
-import { makeStyles, mergeClasses } from '@griffel/react';
-
-const useStyles = makeStyles({
-  root: {
-    display: 'inline-flex',
-  },
-
-  digitSlot: {
-    position: 'relative',
-    display: 'inline-block',
-    overflow: 'hidden',
-  },
-
-  previousDigit: {
-    position: 'absolute',
-    inset: '0',
-    transform: 'translateY(0)',
-    opacity: 1,
-    transitionProperty: 'transform, opacity',
-    transitionDuration: '75ms',
-    transitionTimingFunction: 'cubic-bezier(0.9, 0.1, 1, 0.2)',
-  },
-
-  previousDigitAnimateOutUp: {
-    transform: 'translateY(-100%)',
-    opacity: 0,
-  },
-
-  previousDigitAnimateOutDown: {
-    transform: 'translateY(100%)',
-    opacity: 0,
-  },
-
-  currentDigit: {
-    display: 'inline-block',
-    transform: 'translateY(0)',
-    opacity: 1,
-  },
-
-  currentDigitInitialUp: {
-    transform: 'translateY(100%)',
-    opacity: 0,
-  },
-
-  currentDigitInitialDown: {
-    transform: 'translateY(-100%)',
-    opacity: 0,
-  },
-
-  // Current digit animating in
-  currentDigitAnimateIn: {
-    transform: 'translateY(0)',
-    opacity: 1,
-    transitionProperty: 'transform, opacity',
-    transitionDuration: '150ms',
-    transitionTimingFunction: 'cubic-bezier(0.1, 0.9, 0.2, 1)',
-  },
-});
+import { mergeClasses } from '@griffel/react';
+import { useFluent_unstable as useFluent } from '@fluentui/react-shared-contexts';
+import { useAnimatedNumberStyles } from './AnimatedNumber.styles';
 
 interface DigitSlotProps {
   currentDigit: string;
   previousDigit: string | null;
   isAnimating: boolean;
   direction: 'up' | 'down';
+  targetWindow: Window | undefined;
 }
 
-function DigitSlot({ currentDigit, previousDigit, isAnimating, direction }: DigitSlotProps) {
-  const [showPrevious, setShowPrevious] = useState(false);
-  const [animateOut, setAnimateOut] = useState(false);
-  const [animateIn, setAnimateIn] = useState(false);
-  const styles = useStyles();
+const DigitSlot: React.FC<DigitSlotProps> = ({ currentDigit, previousDigit, isAnimating, direction, targetWindow }) => {
+  const [showPrevious, setShowPrevious] = React.useState(false);
+  const [animateOut, setAnimateOut] = React.useState(false);
+  const [animateIn, setAnimateIn] = React.useState(false);
+  const styles = useAnimatedNumberStyles();
 
-  useEffect(() => {
-    if (isAnimating && previousDigit !== null) {
+  React.useEffect(() => {
+    if (isAnimating && previousDigit !== null && targetWindow) {
       setShowPrevious(true);
       setAnimateOut(false);
       setAnimateIn(false);
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      targetWindow.requestAnimationFrame(() => {
+        targetWindow.requestAnimationFrame(() => {
           setAnimateOut(true);
 
-          setTimeout(() => {
+          targetWindow.setTimeout(() => {
             setAnimateIn(true);
 
-            setTimeout(() => {
+            targetWindow.setTimeout(() => {
               setShowPrevious(false);
               setAnimateOut(false);
               setAnimateIn(false);
@@ -96,7 +41,7 @@ function DigitSlot({ currentDigit, previousDigit, isAnimating, direction }: Digi
         });
       });
     }
-  }, [isAnimating, previousDigit]);
+  }, [isAnimating, previousDigit, targetWindow]);
 
   const previousDigitClassName = mergeClasses(
     styles.previousDigit,
@@ -119,22 +64,27 @@ function DigitSlot({ currentDigit, previousDigit, isAnimating, direction }: Digi
       <span className={currentDigitClassName}>{currentDigit}</span>
     </span>
   );
-}
+};
 
 interface AnimatedNumberProps {
   value: number;
 }
 
-export function AnimatedNumber({ value }: AnimatedNumberProps) {
-  const [currentValue, setCurrentValue] = useState(value.toString());
-  const [previousValue, setPreviousValue] = useState<string | null>(null);
-  const [animatingIndices, setAnimatingIndices] = useState<Set<number>>(new Set());
-  const [direction, setDirection] = useState<'up' | 'down'>('up');
-  const prevValueRef = useRef(value);
-  const styles = useStyles();
+export const AnimatedNumber: React.FC<AnimatedNumberProps> = ({ value }) => {
+  const { targetDocument } = useFluent();
+  const targetWindow = targetDocument?.defaultView;
 
-  useEffect(() => {
-    if (value === prevValueRef.current) return;
+  const [currentValue, setCurrentValue] = React.useState(value.toString());
+  const [previousValue, setPreviousValue] = React.useState<string | null>(null);
+  const [animatingIndices, setAnimatingIndices] = React.useState<Set<number>>(new Set());
+  const [direction, setDirection] = React.useState<'up' | 'down'>('up');
+  const prevValueRef = React.useRef(value);
+  const styles = useAnimatedNumberStyles();
+
+  React.useEffect(() => {
+    if (value === prevValueRef.current) {
+      return;
+    }
 
     const prevStr = prevValueRef.current.toString();
     const nextStr = value.toString();
@@ -156,13 +106,13 @@ export function AnimatedNumber({ value }: AnimatedNumberProps) {
     setCurrentValue(nextStr);
     setAnimatingIndices(indicesToAnimate);
 
-    setTimeout(() => {
+    targetWindow?.setTimeout(() => {
       setAnimatingIndices(new Set());
       setPreviousValue(null);
     }, 300);
 
     prevValueRef.current = value;
-  }, [value, currentValue]);
+  }, [value, currentValue, targetWindow]);
 
   const currentChars = currentValue.split('');
   const previousChars = previousValue?.split('') || [];
@@ -183,9 +133,10 @@ export function AnimatedNumber({ value }: AnimatedNumberProps) {
             previousDigit={prevChar}
             isAnimating={animatingIndices.has(adjustedIndex)}
             direction={direction}
+            targetWindow={targetWindow ?? undefined}
           />
         );
       })}
     </span>
   );
-}
+};
