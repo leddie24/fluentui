@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "feat: Add isAnimated prop to CounterBadge for animated digit transitions",
+  "packageName": "@fluentui/react-badge",
+  "email": "email not defined",
+  "dependentChangeType": "patch"
+}
